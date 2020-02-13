@@ -1,3 +1,5 @@
+![Cabal Build](https://github.com/larskuhtz/hostaddress/workflows/Cabal%20Build/badge.svg)
+
 # Haskell Tools for Host Addresses
 
 This package implements Host addresses as described in RFC2396 section 3.2.2

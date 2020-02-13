@@ -1,0 +1,94 @@
+name: Cabal Build
+
+on: [push]
+
+jobs:
+  build:
+    name: Build master with ${{ matrix.ghc }} / ${{ matrix.cabal }} on ${{ matrix.os }} with ${{ matrix.with_aeson }}, ${{ matrix.with_configuration_tools }}, ${{ matrix.with_quickcheck }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc: ['8.6.5', '8.8.2']
+        cabal: ['3.0']
+        os: ['ubuntu-latest', 'macOS-latest', 'windows-latest']
+        with_aeson: ['-f-with-aeson', '-f+with-aeson']
+        with_configuration_tools: ['-f-with-configuration-tools', '-f+with-configuration-tools']
+        with_quickcheck: ['-f-with-quickcheck', '-f+with-quickcheck']
+        exclude:
+
+        - ghc: '8.6.5'
+          with_aeson: '-f-with-aeson'
+        - ghc: '8.6.5'
+          with_configuration_tools: '-f-with-configuration-tools'
+        - ghc: '8.6.5'
+          with_quickcheck: '-f-with-quickcheck'
+
+        - os: 'macOS-latest'
+          with_aeson: '-f-with-aeson'
+        - os: 'macOS-latest'
+          with_configuration_tools: '-f-with-configuration-tools'
+        - os: 'macOS-latest'
+          with_quickcheck: '-f-with-quickcheck'
+
+        - os: 'windows-latest'
+          with_aeson: '-f-with-aeson'
+        - os: 'windows-latest'
+          with_configuration_tools: '-f-with-configuration-tools'
+        - os: 'windows-latest'
+          with_quickcheck: '-f-with-quickcheck'
+
+    steps:
+    # Setup
+    - name: Checkout repository
+      uses: actions/checkout@v1
+
+    # Haskell Setup
+    - name: Install Haskell (ubuntu)
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+          sudo add-apt-repository ppa:hvr/ghc
+          sudo apt-get update
+          sudo apt-get install ghc-${{ matrix.ghc }}
+    - name: Install Haskell (macOS)
+      if: contains(matrix.os, 'macOS')
+      run: |
+        curl -sL https://haskell.futurice.com/haskell-on-macos.py | python3 - --make-dirs --paths.d --ghc-alias=${{ matrix.ghc }} --cabal-alias=3.0.0.0 install ghc-${{ matrix.ghc }} cabal-install-3.0.0.0
+        ln -s /opt/cabal/3.0.0.0 /opt/cabal/3.0
+    - name: Install Haskell (windows)
+      if: contains(matrix.os, 'windows')
+      shell: bash
+      run: |
+        mkdir -p /c/tools/msys64/mingw64/lib
+        choco install -r -y cabal --version 3.0.0.0
+        choco install -r -y ghc --version 8.8.1
+    - name: Set GHC and Cabal version (ubuntu, macOS)
+      if: "!contains(matrix.os, 'windows')"
+      uses: actions/setup-haskell@v1
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+    - name: Set GHC and Cabal version (windows)
+      if: "contains(matrix.os, 'windows')"
+      shell: bash
+      run: |
+        echo "::add-path::/c/ProgramData/chocolatey/lib/ghc/tools/ghc-8.8.1/bin"
+        echo "::add-path::C:\\ProgramData\\chocolatey\\lib\\ghc\\tools\\ghc-8.8.1\\bin"
+        echo "::add-path::/c/ProgramData/chocolatey/lib/cabal/tools/cabal-3.0.0.0"
+        echo "::add-path::C:\\ProgramData\\chocolatey\\lib\\cabal\\tools\\cabal-3.0.0.0"
+        echo "::add-path::/c/Users/runneradmin/AppData/Roaming/cabal/bin"
+        echo "::add-path::C:\\Users\\runneradmin\\AppData\\Roaming\\cabal\\bin"
+        echo "::add-path::/c/Program Files/Amazon/AWSCLI/bin"
+        echo "::add-path::C:\\Program Files\\Amazon\\AWSCLI\\bin"
+
+    # Build
+    - name: Update package database
+      run: cabal v2-update
+    - name: Build
+      run: cabal v2-build ${{ matrix.with_aeson }} ${{ matrix.with_configuration_tools }} ${{ matrix.with_quickcheck }} --disable-documentation
+    - name: Build Documentation
+      run: cabal v2-haddock ${{ matrix.with_aeson }} ${{ matrix.with_configuration_tools }} ${{ matrix.with_quickcheck }}
+    - name: Check
+      run: cabal check
+    - name: build distribution package
+      run: cabal v2-sdist
