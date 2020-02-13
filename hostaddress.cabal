@@ -17,7 +17,7 @@ license-file: LICENSE
 author: Lars Kuhtz
 maintainer: Lars Kuhtz <lakuhtz@gmail.com>
 copyright: Copyright (c) 2020, Lars Kuhtz <lakuhtz@gmail.com>
-category: Data
+category: Network
 tested-with:
       GHC==8.6.5
     , GHC==8.8.2
