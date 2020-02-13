@@ -140,7 +140,6 @@ import Configuration.Utils hiding ((<?>), (<|>), FromJSON, ToJSON)
 
 import Control.Applicative
 import Control.DeepSeq (NFData)
-import Control.Lens.TH (makeLenses)
 import Control.Monad
 import Control.Monad.Catch
 
@@ -167,6 +166,8 @@ import Data.Word (Word16, Word8)
 
 import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
+
+import Lens.Micro.TH (makeLenses)
 
 #ifdef VERSION_configuration_tools
 import qualified Options.Applicative as O
