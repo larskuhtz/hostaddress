@@ -6,10 +6,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
 #ifdef VERSION_aeson
 {-# LANGUAGE StandaloneDeriving #-}
@@ -87,6 +89,13 @@ module Network.HostAddress
 , hostnameFromText
 , unsafeHostnameFromText
 
+-- ** Pattern Synonyms
+, IPv4
+, IPv6
+, pattern HostName
+, pattern HostIPv4
+, pattern HostIPv6
+
 -- ** Special Host Names
 , localhost
 , localhostIPv4
@@ -154,7 +163,8 @@ import Data.Bifunctor
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.CaseInsensitive as CI
 import Data.Hashable (Hashable(..))
-import Data.IP
+import Data.IP hiding (IPv4, IPv6)
+import qualified Data.IP as IP (IPv4)
 #ifdef VERSION_QuickCheck
 import qualified Data.List as L
 #endif
@@ -238,7 +248,9 @@ hostNameParser = ()
     alphanumhyphen = satisfy (\c -> isAlpha_ascii c || isDigit c || c == '-')
         <?> "alphahumhypen"
 
-ipV4Parser :: Parser (Word8, Word8, Word8, Word8)
+type IPv4 =  (Word8, Word8, Word8, Word8)
+
+ipV4Parser :: Parser IPv4
 ipV4Parser = (,,,)
     <$> (octet <* ".") <*> (octet <* ".") <*> (octet <* ".") <*> octet
     <?> "ipv4address"
@@ -247,7 +259,9 @@ ipV4Parser = (,,,)
     octet = (decimal >>= \(d :: Integer) -> int d <$ guard (d < 256))
         <?> "octet"
 
-ipV6Parser :: Parser [Maybe Word16]
+type IPv6 = [Maybe Word16]
+
+ipV6Parser :: Parser IPv6
 ipV6Parser = p0
   where
     p0 = l1 <$> elision <* endOfInput
@@ -294,6 +308,14 @@ parseBytes name parser b = either (throwM . HostAddressParserException . msg) re
   where
     msg e = "Failed to parse " <> sshow b <> " as " <> name <> ": "
         <> T.pack e
+
+parseIPv4 :: MonadThrow m => B8.ByteString -> m IPv4
+parseIPv4 = parseBytes "IPv4" (ipV4Parser <* endOfInput)
+{-# INLINE parseIPv4 #-}
+
+parseIPv6 :: MonadThrow m => B8.ByteString -> m IPv6
+parseIPv6 = parseBytes "IPv6" (ipV6Parser <* endOfInput)
+{-# INLINE parseIPv6 #-}
 
 -- -------------------------------------------------------------------------- --
 -- Port Numbers
@@ -379,19 +401,27 @@ isReservedHostname :: Hostname -> Bool
 isReservedHostname (HostnameIPv4 ip) = isReservedIp (read $ B8.unpack $ CI.original ip)
 isReservedHostname h = isPrivateHostname h
 
+ip2ip :: IPv4 -> IP.IPv4
+ip2ip (i0, i1, i2, i3) = toIPv4 $ int <$> [i0, i1, i2, i3]
+{-# INLINE ip2ip #-}
+
 isLocalIp :: IPv4 -> Bool
-isLocalIp ip =
+isLocalIp i =
     isMatchedTo ip $ makeAddrRange (toIPv4 [127,0,0,0]) 8
+  where
+    ip = ip2ip i
 
 isPrivateIp :: IPv4 -> Bool
-isPrivateIp ip = or
+isPrivateIp i = or
     [ isMatchedTo ip $ makeAddrRange (toIPv4 [10,0,0,0]) 8
     , isMatchedTo ip $ makeAddrRange (toIPv4 [172,16,0,0]) 12
     , isMatchedTo ip $ makeAddrRange (toIPv4 [192,168,0,0]) 16
     ]
+  where
+    ip = ip2ip i
 
 isReservedIp :: IPv4 -> Bool
-isReservedIp ip = isLocalIp ip || isPrivateIp ip || or
+isReservedIp i = isLocalIp i || isPrivateIp i || or
     [ isMatchedTo ip $ makeAddrRange (toIPv4 [0,0,0,0]) 8
     , isMatchedTo ip $ makeAddrRange (toIPv4 [100,64,0,0]) 10
     , isMatchedTo ip $ makeAddrRange (toIPv4 [169,254,0,0]) 16
@@ -405,6 +435,8 @@ isReservedIp ip = isLocalIp ip || isPrivateIp ip || or
     , isMatchedTo ip $ makeAddrRange (toIPv4 [240,0,0,0]) 4
     , isMatchedTo ip $ makeAddrRange (toIPv4 [255,255,255,255]) 32
     ]
+  where
+    ip = ip2ip i
 
 hostnameBytes :: Hostname -> B8.ByteString
 hostnameBytes (HostnameName b) = CI.original b
@@ -423,6 +455,32 @@ hostnameFromText = readHostnameBytes . T.encodeUtf8
 unsafeHostnameFromText :: HasCallStack => T.Text -> Hostname
 unsafeHostnameFromText = fromJuste . hostnameFromText
 {-# INLINE unsafeHostnameFromText #-}
+
+-- -------------------------------------------------------------------------- --
+-- Hostname Pattern Synonyms
+
+pattern HostName :: CI.CI B8.ByteString -> Hostname
+pattern HostName n <- HostnameName n
+
+pattern HostIPv4 :: IPv4 -> Hostname
+pattern HostIPv4 i <- (viewIPv4 -> Just i)
+  where
+    HostIPv4 i = HostnameIPv4 (CI.mk $ sshow i)
+
+pattern HostIPv6 :: IPv6 -> Hostname
+pattern HostIPv6 i <- (viewIPv6 -> Just i)
+  where
+    HostIPv6 i = HostnameIPv6 (CI.mk $ sshow i)
+
+{-# COMPLETE HostIPv4, HostIPv6, HostName #-}
+
+viewIPv4 :: Hostname -> Maybe IPv4
+viewIPv4 (HostnameIPv4 bytes) = parseIPv4 $ CI.original bytes
+viewIPv4 _ = Nothing
+
+viewIPv6 :: Hostname -> Maybe IPv6
+viewIPv6 (HostnameIPv6 bytes) = parseIPv6 $ CI.original bytes
+viewIPv6 _ = Nothing
 
 -- -------------------------------------------------------------------------- --
 -- Host Addresses
