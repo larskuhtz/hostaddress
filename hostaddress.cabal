@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name: hostaddress
-version: 0.1.0.0
+version: 0.2.0.0
 synopsis: Network Host Addresses
 description:
     Host addresses as described in RFC2396 section 3.2.2 with additional consideration of
@@ -17,7 +17,7 @@ license-file: LICENSE
 author: Lars Kuhtz
 maintainer: Lars Kuhtz <lakuhtz@gmail.com>
 copyright: Copyright (c) 2020, Lars Kuhtz <lakuhtz@gmail.com>
-category: Data
+category: Network
 tested-with:
       GHC==8.6.5
     , GHC==8.8.2
@@ -52,11 +52,11 @@ library
     exposed-modules:
         Network.HostAddress
     build-depends:
-          base >=4.10 && <4.15
+          base >=4.10 && <5
         , bytestring >=0.10
         , deepseq >=1.4
         , text >=1.2
-        , hashable >=1.3
+        , hashable >=1.2
         , case-insensitive >=1.2
         , microlens-th >=0.4
         , exceptions >=0.10
@@ -70,10 +70,10 @@ library
     if flag(with-configuration-tools)
         build-depends:
               configuration-tools >=0.4
-            , optparse-applicative >=0.15
+            , optparse-applicative >=0.14
             , aeson >=1.4
 
     if flag(with-quickcheck)
         build-depends:
-            QuickCheck >=2.13
+            QuickCheck >=2.12
 
