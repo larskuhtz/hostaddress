@@ -52,7 +52,7 @@ library
     exposed-modules:
         Network.HostAddress
     build-depends:
-          base >=4.10 && <4.15
+          base >=4.10 && <5
         , bytestring >=0.10
         , deepseq >=1.4
         , text >=1.2
