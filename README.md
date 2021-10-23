@@ -13,7 +13,7 @@ with additional consideration of
 # Build from Source
 
 ```sh
-cabal v2-build
+cabal build
 ```
 
 The following optional build flags are available:

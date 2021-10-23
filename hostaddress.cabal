@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name: hostaddress
-version: 0.1.0.0
+version: 0.2.0.0
 synopsis: Network Host Addresses
 description:
     Host addresses as described in RFC2396 section 3.2.2 with additional consideration of
